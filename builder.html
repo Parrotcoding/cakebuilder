@@ -69,7 +69,7 @@ function generateLink(){
 
   const key=randomShift();
   const encrypted=caesarEncrypt(msgRaw,key);
-  const link=`cake.html?name=${encodeURIComponent(nameRaw)}&msg=${encodeURIComponent(encrypted)}&key=${key}`;
+  const link = `https://parrotcoding.github.io/cakebuilder/index.html?name=${encodeURIComponent(nameRaw)}&msg=${encodeURIComponent(encrypted)}&key=${key}`;
 
   // Show preview
   document.getElementById('previewName').textContent=nameRaw;
