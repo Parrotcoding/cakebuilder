@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Cake Card Builder</title>
 
-  <!-- DM Sans -->
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;600&display=swap" rel="stylesheet">
 
   <style>
@@ -13,9 +12,10 @@
     *{box-sizing:border-box;margin:0;padding:0;font-family:'DM Sans',sans-serif;}
     body{background:radial-gradient(circle at top left,#ffe5ec,var(--bg));color:var(--dark);padding:2rem;}
     h1{text-align:center;margin-bottom:1.5rem;font-size:2rem;}
-    .builder{max-width:500px;margin:auto;background:#fff;padding:2rem;border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.1);}
+    .builder{max-width:520px;margin:auto;background:#fff;padding:2rem;border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.1);}
     label{font-weight:600;display:block;margin:1rem 0 .3rem;}
     input,textarea{width:100%;padding:.7rem;border:2px solid var(--primary);border-radius:12px;font-size:1rem;}
+    textarea{min-height:140px;}
     button{background:var(--primary);color:#fff;border:none;padding:.85rem 1.4rem;border-radius:9999px;margin-top:1.5rem;font-size:1rem;cursor:pointer;transition:transform .1s;}
     button:active{transform:scale(.97);}
     .preview{margin-top:2rem;text-align:center;display:none;}
@@ -31,27 +31,27 @@
     <label for="recipient">Recipient Name</label>
     <input id="recipient" type="text" placeholder="e.g. Max" />
 
-    <label for="message">Custom Message (shown after second blow)</label>
-    <textarea id="message" rows="4" placeholder="You're the absolute best little brother ever. Happy birthday!"></textarea>
+    <label for="message">Custom Message (max 10 lines – each line reveals with a new blow)</label>
+    <textarea id="message" placeholder="Line 1&#10;Line 2&#10;… up to 10"></textarea>
 
     <button onclick="generateLink()">Generate Link</button>
 
     <div class="preview" id="preview">
       <div class="preview-card">
-        <strong>To:</strong> <span id="previewName"></span><br />
-        <strong>Encrypted Message:</strong>
-        <div id="previewMsg" style="margin-top:0.5rem;font-family:monospace;"></div>
-        <div style="margin-top:.5rem;font-size:.9rem;opacity:.7;">(Shift key <span id="previewKey"></span>)</div>
+        <strong>To:</strong> <span id="previewName"></span><br>
+        <strong>Encrypted Message (10-line max):</strong>
+        <pre id="previewMsg" style="margin-top:.4rem;font-family:monospace;white-space:pre-wrap;"></pre>
+        <div style="margin-top:.4rem;font-size:.9rem;opacity:.7;">Shift key <span id="previewKey"></span></div>
       </div>
 
       <div class="link-box" id="previewLink">
-        <button class="copy-btn" onclick="copyLink(event)">Copy</button>
+        <button class="copy-btn" onclick="copyLink()">Copy</button>
       </div>
     </div>
   </div>
 
 <script>
-// Caesar helpers
+/* ---------- Caesar helpers ---------- */
 function caesarEncrypt(str,shift){
   return str.split('').map(ch=>{
     const c=ch.charCodeAt(0);
@@ -62,28 +62,27 @@ function caesarEncrypt(str,shift){
 }
 function randomShift(){return Math.floor(Math.random()*25)+1;} // 1-25
 
+let lastLink='';
+
 function generateLink(){
   const nameRaw=document.getElementById('recipient').value.trim();
-  const msgRaw=document.getElementById('message').value.trim();
-  if(!nameRaw||!msgRaw){alert('Please enter both a name and a message.');return;}
+  const msgRaw=document.getElementById('message').value.trim().split('\n').slice(0,10).join('\n'); // cap 10 lines
+  if(!nameRaw||!msgRaw){alert('Please enter a name and up to 10 lines of text.');return;}
 
   const key=randomShift();
   const encrypted=caesarEncrypt(msgRaw,key);
-  const link = `https://parrotcoding.github.io/cakebuilder/index.html`
-           + `?name=${encodeURIComponent(nameRaw)}`
-           + `&msg=${encodeURIComponent(encrypted)}`
-           + `&key=${key}`;
+  lastLink=`https://parrotcoding.github.io/cakebuilder/cake.html?name=${encodeURIComponent(nameRaw)}&msg=${encodeURIComponent(encrypted)}&key=${key}`;
 
-  // Show preview
+  /* preview */
   document.getElementById('previewName').textContent=nameRaw;
   document.getElementById('previewMsg').textContent=encrypted;
   document.getElementById('previewKey').textContent=key;
-  document.getElementById('previewLink').textContent = link;
+  document.getElementById('previewLink').firstChild.nodeValue=lastLink;
   document.getElementById('preview').style.display='block';
 }
 
 function copyLink(){
-  navigator.clipboard.writeText(link).then(()=>alert('Link copied!'));
+  navigator.clipboard.writeText(lastLink).then(()=>alert('Link copied!'));
 }
 </script>
 </body>
