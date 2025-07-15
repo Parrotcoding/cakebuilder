@@ -85,15 +85,12 @@
 </div>
 <script>
 // GLOBAL STATE
-let layers=[];           // color strings
-let toppings=[];         // emoji strings
-let recipient="Birthday Star";
-let micStream=null;      // MediaStream or null
-let blowCount=0;         // how many blows detected
-const BLOW_COOLDOWN=1000; // ms to ignore sound after a blow
-const layerHeight=40;
+let layers=[], toppings=[];
+let recipient="Birthday Star", micStream=null;
+let blowCount=0, lastBlow=0;
+const layerHeight=40, BLOW_COOLDOWN=1000;
 
-// UTILS
+// UTIL: render cake
 function renderCake(container, includeToppings=false){
   container.innerHTML='';
   layers.forEach((color,idx)=>{
@@ -109,173 +106,101 @@ function renderCake(container, includeToppings=false){
       const top=document.createElement('div');
       top.className='topping';
       top.textContent=emoji;
-      const spread=48;
-      top.style.left=`calc(50% + ${(idx-(toppings.length-1)/2)*spread}px)`;
-      top.style.bottom=(layers.length*layerHeight + 6)+'px';
+      top.style.left=`calc(50% + ${(idx-(toppings.length-1)/2)*48}px)`;
+      top.style.bottom=(layers.length*layerHeight+6)+'px';
       container.appendChild(top);
     });
   }
 }
 
-// MIC STEP
-const enableMicBtn=document.getElementById('enableMic');
-const toNameBtn=document.getElementById('toName');
-const micStatus=document.getElementById('micStatus');
-
-enableMicBtn.addEventListener('click',()=>{
-  if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){
-    micStatus.textContent='Microphone API not supported, but you can still continue.';
-    toNameBtn.disabled=false;
-    return;
+// STEP 0 – mic
+enableMic.addEventListener('click',()=>{
+  if(!navigator.mediaDevices?.getUserMedia){
+    micStatus.textContent='No mic API, but you can continue.';
+    toName.disabled=false; return;
   }
-  enableMicBtn.disabled=true;
-  enableMicBtn.textContent='Requesting…';
-  navigator.mediaDevices.getUserMedia({audio:true}).then(stream=>{
-    micStream=stream;
-    enableMicBtn.textContent='Microphone enabled ✔';
-    micStatus.textContent='Great! You can blow out the candle later.';
-    toNameBtn.disabled=false;
+  enableMic.disabled=true; enableMic.textContent='Requesting…';
+  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{
+    micStream=s;
+    enableMic.textContent='Microphone enabled ✔';
+    micStatus.textContent='Great! Blow detection ready.';
+    toName.disabled=false;
   }).catch(()=>{
-    enableMicBtn.textContent='Enable Microphone (optional)';
-    micStatus.textContent='Permission denied – click Continue to proceed without blowing feature.';
-    toNameBtn.disabled=false;
+    enableMic.textContent='Enable Microphone (optional)';
+    micStatus.textContent='Permission denied – continue without blowing feature.';
+    toName.disabled=false;
   });
 });
+toName.addEventListener('click',()=>{stepMic.classList.remove('active');stepName.classList.add('active');nameInput.focus();});
 
-toNameBtn.addEventListener('click',()=>{
-  document.getElementById('step-mic').classList.remove('active');
-  document.getElementById('step-name').classList.add('active');
-  document.getElementById('nameInput').focus();
-});
-
-// NAME STEP
-const nameInput=document.getElementById('nameInput');
-const toLayersBtn=document.getElementById('toLayers');
-nameInput.addEventListener('input',()=>{toLayersBtn.disabled=!nameInput.value.trim();});
-
-toLayersBtn.addEventListener('click',()=>{
+// STEP 1 – name
+nameInput.addEventListener('input',()=>toLayers.disabled=!nameInput.value.trim());
+toLayers.addEventListener('click',()=>{
   recipient=nameInput.value.trim()||'Birthday Star';
-  document.getElementById('step-name').classList.remove('active');
-  document.getElementById('step-layers').classList.add('active');
+  stepName.classList.remove('active');stepLayers.classList.add('active');
 });
 
-// DRAG SUPPORT
-function handleDragStart(e){
-  const t=e.target;
-  e.dataTransfer.setData('text/plain',JSON.stringify({type:t.dataset.type,color:t.dataset.color,emoji:t.dataset.emoji}));
-}
-[...document.querySelectorAll('.draggable')].forEach(el=>el.addEventListener('dragstart',handleDragStart));
+// drag helper
+document.querySelectorAll('.draggable').forEach(el=>el.addEventListener('dragstart',e=>{
+  e.dataTransfer.setData('text/plain',JSON.stringify(el.dataset));
+}));
 
-// LAYERS STEP
-const panLayers=document.getElementById('pan-layers');
-const toToppingBtn=document.getElementById('toTopping');
-
+// STEP 2 – layers
 panLayers.addEventListener('drop',e=>{
   e.preventDefault();
   const d=JSON.parse(e.dataTransfer.getData('text/plain'));
-  if(d.type==='layer'&&layers.length<6){
-    layers.push(d.color);
-    renderCake(panLayers);
-    toToppingBtn.disabled=false;
-  }
+  if(d.type==='layer'&&layers.length<6){layers.push(d.color);renderCake(panLayers);toTopping.disabled=false;}
+});
+toTopping.addEventListener('click',()=>{
+  stepLayers.classList.remove('active');stepTopping.classList.add('active');
+  renderCake(panTopping,true);
 });
 
-toToppingBtn.addEventListener('click',()=>{
-  document.getElementById('step-layers').classList.remove('active');
-  document.getElementById('step-topping').classList.add('active');
-  renderCake(document.getElementById('pan-topping'),true);
-});
-
-// TOPPINGS STEP
-const panTopping=document.getElementById('pan-topping');
-const toFinishBtn=document.getElementById('toFinish');
-
+// STEP 3 – toppings
 panTopping.addEventListener('drop',e=>{
   e.preventDefault();
   const d=JSON.parse(e.dataTransfer.getData('text/plain'));
-  if(d.type==='topping'){
-    toppings.push(d.emoji);
-    renderCake(panTopping,true);
-    toFinishBtn.disabled=false;
-  }
+  if(d.type==='topping'){toppings.push(d.emoji);renderCake(panTopping,true);toFinish.disabled=false;}
 });
+toFinish.addEventListener('click',()=>{
+  stepTopping.classList.remove('active');stepFinish.classList.add('active');
+  const panFinish=document.getElementById('pan-finish');renderCake(panFinish,true);
+  // candle & flame
+  const candle=document.createElement('div');candle.style.cssText='position:absolute;width:12px;height:46px;background:repeating-linear-gradient(45deg,#ffd1dc 0 4px,#ff8ba7 4px 8px);bottom:'+(layers.length*layerHeight+50)+'px;left:50%;transform:translateX(-50%);';
+  const flame=document.createElement('div');flame.style.cssText='position:absolute;width:16px;height:20px;left:50%;top:-20px;transform:translateX(-50%);background:radial-gradient(circle at 50% 60%,#fff 0 20%,#ffda66 20% 60%,#ff8c00 60% 100%);border-radius:50%/60% 60% 40% 40%;animation:flicker .4s infinite alternate;';
+  candle.appendChild(flame);panFinish.appendChild(candle);
+  const msg=document.getElementById('msg');
 
-toFinishBtn.addEventListener('click',()=>{
-  document.getElementById('step-topping').classList.remove('active');
-  document.getElementById('step-finish').classList.add('active');
-  const panFinish=document.getElementById('pan-finish');
-  renderCake(panFinish,true);
-  // Candle
-  const candle=document.createElement('div');
-  candle.style.position='absolute';
-  candle.style.width='12px';
-  candle.style.height='46px';
-  candle.style.background='repeating-linear-gradient(45deg,#ffd1dc 0 4px,#ff8ba7 4px 8px)';
-  candle.style.bottom=(layers.length*layerHeight + 50)+'px';
-  candle.style.left='50%';
-  candle.style.transform='translateX(-50%)';
-  const flame=document.createElement('div');
-  flame.style.position='absolute';
-  flame.style.width='16px';
-  flame.style.height='20px';
-  flame.style.left='50%';
-  flame.style.top='-20px';
-  flame.style.transform='translateX(-50%)';
-  flame.style.background='radial-gradient(circle at 50% 60%,#fff 0 20%,#ffda66 20% 60%,#ff8c00 60% 100%)';
-  flame.style.borderRadius='50% 50% 50% 50%/60% 60% 40% 40%';
-  flame.style.animation='flicker .4s infinite alternate';
-  candle.appendChild(flame);
-  panFinish.appendChild(candle);
-
-  const msgEl=document.getElementById('msg');
-
-  function celebrateFirst(){
-    flame.style.display='none';
-    msgEl.textContent=`Happy Birthday, ${recipient}!`;
-    msgEl.style.display='block';
-    msgEl.style.opacity='1';
-    confetti({particleCount:200,spread:100,origin:{y:0.6}});
-  }
-  function celebrateSecond(){
-    msgEl.style.opacity='0';
-    setTimeout(()=>{
-      msgEl.textContent="You're the absolute best little brother ever. Happy birthday!";
-      msgEl.style.opacity='1';
-      confetti({particleCount:180,spread:120,origin:{y:0.6}});
-    },800);
-  }
-
-  function handleBlow(){
-    blowCount++;
-    if(blowCount===1){celebrateFirst();}
-    else if(blowCount===2){celebrateSecond();}
-  }
-  // also allow click
+  const celebrate1=()=>{
+    flame.style.display='none';confetti({particleCount:200,spread:100,origin:{y:0.6}});
+    msg.textContent=`Happy Birthday, ${recipient}!`;msg.style.display='block';msg.style.opacity='1';
+  };
+  const celebrate2=()=>{
+    msg.style.opacity='0';
+    setTimeout(()=>{msg.textContent="You're the absolute best little brother ever. Happy birthday!";msg.style.opacity='1';confetti({particleCount:180,spread:120,origin:{y:0.6}});},800);
+  };
+  const handleBlow=()=>{blowCount?celebrate2():celebrate1();blowCount++;};
   window.addEventListener('click',handleBlow);
 
-  // Blow detection set-up
-  if(micStream){setupBlowDetection(micStream,handleBlow);}else if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-    navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{micStream=s;setupBlowDetection(s,handleBlow);}).catch(()=>{});
+  // Blow detection
+  if(micStream){setupBlowDetection(micStream,handleBlow);}
+  else if(navigator.mediaDevices?.getUserMedia){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{micStream=s;setupBlowDetection(s,handleBlow);});
   }
 });
 
-/* keeps listening forever; cooldown prevents duplicate triggers */
+// blow detection keeps AudioContext alive
 function setupBlowDetection(stream,onBlow){
   const ctx=new (window.AudioContext||window.webkitAudioContext)();
-  const analyser=ctx.createAnalyser();
-  analyser.fftSize=256;
+  const analyser=ctx.createAnalyser();analyser.fftSize=256;
   ctx.createMediaStreamSource(stream).connect(analyser);
   const data=new Uint8Array(analyser.frequencyBinCount);
-  const threshold=100;
-  let lastBlow=0;
   (function listen(){
+    if(ctx.state==='suspended') ctx.resume();           /* ← NEW LINE */
     analyser.getByteFrequencyData(data);
-    let sum=0;for(let i=0;i<data.length;i++)sum+=data[i];
+    const sum=data.reduce((a,b)=>a+b,0);
     const now=Date.now();
-    if(sum>threshold*data.length && now-lastBlow>BLOW_COOLDOWN){
-      lastBlow=now;
-      onBlow();
-    }
+    if(sum>100*data.length && now-lastBlow>BLOW_COOLDOWN){lastBlow=now;onBlow();}
     requestAnimationFrame(listen);
   })();
 }
