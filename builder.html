@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cake Card Builder</title>
+  <style>
+    body { font-family: 'DM Sans', sans-serif; background: #fff7ec; color: #403d58; padding: 2rem; }
+    h1 { text-align: center; }
+    .builder { max-width: 500px; margin: auto; background: white; padding: 2rem; border-radius: 18px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); }
+    label { font-weight: 600; display: block; margin: 1rem 0 0.3rem; }
+    input, textarea { width: 100%; padding: 0.7rem; border: 2px solid #ff8ba7; border-radius: 12px; font-size: 1rem; }
+    button { background: #ff8ba7; color: white; border: none; padding: 0.8rem 1.3rem; border-radius: 999px; margin-top: 1.5rem; font-size: 1rem; cursor: pointer; }
+    .preview { margin-top: 2rem; text-align: center; }
+    .preview-card { background: #fafafa; padding: 1rem; border-radius: 12px; margin-top: 1rem; }
+    .link-box { word-break: break-all; background: #fff0f5; padding: 0.8rem; border-radius: 8px; margin-top: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>🎂 Build Your Cake Card</h1>
+  <div class="builder">
+    <label for="recipient">Recipient Name</label>
+    <input id="recipient" type="text" placeholder="e.g. Max" />
+
+    <label for="message">Custom Message (shown after second blow)</label>
+    <textarea id="message" rows="4" placeholder="You're the absolute best little brother ever. Happy birthday!"></textarea>
+
+    <button onclick="generateLink()">Generate Link</button>
+
+    <div class="preview" id="preview" style="display:none;">
+      <div class="preview-card">
+        <strong>To:</strong> <span id="previewName"></span><br />
+        <strong>Message:</strong>
+        <div id="previewMsg" style="margin-top:0.5rem;"></div>
+      </div>
+      <div class="link-box" id="previewLink"></div>
+    </div>
+  </div>
+
+  <script>
+    function generateLink() {
+      const name = encodeURIComponent(document.getElementById('recipient').value.trim());
+      const message = encodeURIComponent(document.getElementById('message').value.trim());
+      if (!name || !message) return alert('Please enter both a name and message.');
+      const link = `index.html?name=${name}&msg=${message}`;
+
+      document.getElementById('previewName').textContent = decodeURIComponent(name);
+      document.getElementById('previewMsg').textContent = decodeURIComponent(message);
+      document.getElementById('previewLink').textContent = location.origin + '/' + link;
+      document.getElementById('preview').style.display = 'block';
+    }
+  </script>
+</body>
+</html>
