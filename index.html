@@ -21,7 +21,7 @@
   .topping{position:absolute;font-size:2.2rem;width:44px;height:44px;transform:translateX(-50%);}
   button{align-self:center;padding:.8rem 1.3rem;border-radius:var(--radius);background:var(--primary);color:#fff;font-size:1rem;border:none;cursor:pointer;transition:transform .1s;}
   button:disabled{opacity:.5;cursor:not-allowed;}
-  button:active{transform:scale(.97);}  
+  button:active{transform:scale(.97);}
   #msg{display:none;text-align:center;font-size:1.9rem;font-weight:700;margin-top:1rem;opacity:1;transition:opacity .8s;}
   @keyframes flicker{from{transform:translateX(-50%) scaleY(1);}to{transform:translateX(-50%) scaleY(.9);}}
   input[type="text"]{padding:.7rem 1rem;border:2px solid var(--primary);border-radius:var(--radius);font-size:1rem;width:100%;}
@@ -89,7 +89,10 @@ let layers=[];           // color strings
 let toppings=[];         // emoji strings
 let recipient="Birthday Star";
 let micStream=null;      // MediaStream or null
+let blowCount=0;         // how many blows detected
+const BLOW_COOLDOWN=1000; // ms to ignore sound after a blow
 const layerHeight=40;
+
 // UTILS
 function renderCake(container, includeToppings=false){
   container.innerHTML='';
@@ -226,45 +229,55 @@ toFinishBtn.addEventListener('click',()=>{
 
   const msgEl=document.getElementById('msg');
 
-  // Celebration
-  const celebrate=()=>{
+  function celebrateFirst(){
     flame.style.display='none';
     msgEl.textContent=`Happy Birthday, ${recipient}!`;
     msgEl.style.display='block';
     msgEl.style.opacity='1';
     confetti({particleCount:200,spread:100,origin:{y:0.6}});
-    window.removeEventListener('click',celebrate);
-
-    /* second stage after 3 s */
+  }
+  function celebrateSecond(){
+    msgEl.style.opacity='0';
     setTimeout(()=>{
-      // fade out
-      msgEl.style.opacity='0';
-      // after fade-out animation, switch text and fade in
-      setTimeout(()=>{
-        msgEl.textContent="You're the absolute best little brother ever. Happy birthday!";
-        msgEl.style.opacity='1';
-      },800);
-    },3000);
-  };
-  window.addEventListener('click',celebrate);
+      msgEl.textContent="You're the absolute best little brother ever. Happy birthday!";
+      msgEl.style.opacity='1';
+      confetti({particleCount:180,spread:120,origin:{y:0.6}});
+    },800);
+  }
 
-  // Blow detection if micStream available, else attempt
-  if(micStream){setupBlowDetection(micStream,celebrate);}else if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
-    navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{micStream=s;setupBlowDetection(s,celebrate);}).catch(()=>{});
+  function handleBlow(){
+    blowCount++;
+    if(blowCount===1){celebrateFirst();}
+    else if(blowCount===2){celebrateSecond();}
+  }
+  // also allow click
+  window.addEventListener('click',handleBlow);
+
+  // Blow detection set-up
+  if(micStream){setupBlowDetection(micStream,handleBlow);}else if(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{micStream=s;setupBlowDetection(s,handleBlow);}).catch(()=>{});
   }
 });
 
-function setupBlowDetection(stream,callback){
+/* keeps listening forever; cooldown prevents duplicate triggers */
+function setupBlowDetection(stream,onBlow){
   const ctx=new (window.AudioContext||window.webkitAudioContext)();
   const analyser=ctx.createAnalyser();
   analyser.fftSize=256;
   ctx.createMediaStreamSource(stream).connect(analyser);
   const data=new Uint8Array(analyser.frequencyBinCount);
   const threshold=100;
+  let lastBlow=0;
   (function listen(){
     analyser.getByteFrequencyData(data);
     let sum=0;for(let i=0;i<data.length;i++)sum+=data[i];
-    if(sum>threshold*data.length){callback();} else {requestAnimationFrame(listen);} })();
+    const now=Date.now();
+    if(sum>threshold*data.length && now-lastBlow>BLOW_COOLDOWN){
+      lastBlow=now;
+      onBlow();
+    }
+    requestAnimationFrame(listen);
+  })();
 }
 </script>
 </body>
