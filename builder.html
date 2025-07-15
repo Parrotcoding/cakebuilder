@@ -69,19 +69,21 @@ function generateLink(){
 
   const key=randomShift();
   const encrypted=caesarEncrypt(msgRaw,key);
-  const link = `https://parrotcoding.github.io/cakebuilder/index.html?name=${encodeURIComponent(nameRaw)}&msg=${encodeURIComponent(encrypted)}&key=${key}`;
+  const link = `https://parrotcoding.github.io/cakebuilder/index.html`
+           + `?name=${encodeURIComponent(nameRaw)}`
+           + `&msg=${encodeURIComponent(encrypted)}`
+           + `&key=${key}`;
 
   // Show preview
   document.getElementById('previewName').textContent=nameRaw;
   document.getElementById('previewMsg').textContent=encrypted;
   document.getElementById('previewKey').textContent=key;
-  document.getElementById('previewLink').firstChild.nodeValue = location.origin + location.pathname.replace(/builder\\.html$/,'') + link;
+  document.getElementById('previewLink').textContent = link;
   document.getElementById('preview').style.display='block';
 }
 
-function copyLink(e){
-  const linkText=e.target.parentElement.firstChild.nodeValue.trim();
-  navigator.clipboard.writeText(linkText).then(()=>alert('Link copied!'));
+function copyLink(){
+  navigator.clipboard.writeText(link).then(()=>alert('Link copied!'));
 }
 </script>
 </body>
