@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Bake‑a‑Cake – Drag • Drop • Blow</title>
+<title>Bake-a-Cake – Drag • Drop • Blow</title>
 <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
 <style>
   :root{--bg:#fff7ec;--primary:#ff8ba7;--dark:#403d58;--radius:18px;}
@@ -231,7 +231,7 @@ toFinishBtn.addEventListener('click',()=>{
     document.getElementById('msg').style.display='block';
     confetti({particleCount:200,spread:100,origin:{y:0.6}});
     window.removeEventListener('click',celebrate);
-    if(micStream) micStream.getTracks().forEach(t=>t.stop());
+    // **Removed**: micStream.getTracks().forEach(t=>t.stop());
   };
   window.addEventListener('click',celebrate);
 
