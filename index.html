@@ -1,182 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Bake-a-Cake – Drag • Drop • Blow</title>
+<script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js" defer></script>
+<style>
+  :root{--bg:#fff7ec;--primary:#ff8ba7;--dark:#403d58;--radius:18px;}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:"Segoe UI",Roboto,sans-serif;user-select:none;}
+  body{background:radial-gradient(circle at top left,#ffe5ec,var(--bg));color:var(--dark);display:flex;flex-direction:column;align-items:center;min-height:100vh;padding:2rem 1rem 3rem;}
+  h1{margin-bottom:1rem;font-size:2rem;text-align:center;}
+  .card{width:100%;max-width:460px;background:#fff;border-radius:var(--radius);box-shadow:0 4px 12px rgba(0,0,0,.1);padding:1.6rem;display:flex;flex-direction:column;gap:1rem;}
+  .step{display:none;flex-direction:column;gap:1rem;}
+  .step.active{display:flex;}
+  .workspace{display:flex;gap:.9rem;justify-content:center;}
+  .palette{display:flex;flex-wrap:wrap;gap:.6rem;max-width:180px;align-content:flex-start;}
+  .draggable{width:52px;height:52px;border-radius:var(--radius);border:2px solid var(--dark);display:flex;align-items:center;justify-content:center;font-size:1.8rem;cursor:grab;}
+  .pan{width:260px;height:320px;position:relative;border-bottom:10px solid #cacaca;border-radius:0 0 8px 8px;background:#fafafa;display:flex;justify-content:center;align-items:flex-end;overflow:visible;}
+  .layer{position:absolute;left:50%;transform:translateX(-50%);height:40px;border-radius:6px;box-shadow:0 0 0 4px #fff inset;}
+  .topping{position:absolute;font-size:2.2rem;width:44px;height:44px;transform:translateX(-50%);}
+  button{align-self:center;padding:.8rem 1.3rem;border-radius:var(--radius);background:var(--primary);color:#fff;font-size:1rem;border:none;cursor:pointer;transition:transform .1s;}
+  button:disabled{opacity:.5;cursor:not-allowed;}
+  button:active{transform:scale(.97);}
+  #msg{display:none;text-align:center;font-size:1.9rem;font-weight:700;margin-top:1rem;opacity:1;transition:opacity .8s;}
+  @keyframes flicker{from{transform:translateX(-50%) scaleY(1);}to{transform:translateX(-50%) scaleY(.9);}}
+  input[type="text"]{padding:.7rem 1rem;border:2px solid var(--primary);border-radius:var(--radius);font-size:1rem;width:100%;}
+</style>
+</head>
+<body>
+<h1>🎂 Bake-a-Cake Birthday Card</h1>
+<div class="card">
+  <!-- STEP 0 -->
+  <div class="step active" id="step-mic">
+    <p style="text-align:center;font-weight:600;">To blow out the candle later, we’ll need your mic.</p>
+    <button id="enableMic">Enable Microphone</button>
+    <button id="toName" disabled>Continue →</button>
+    <small id="micStatus" style="text-align:center;opacity:.7;"></small>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="step" id="step-name">
+    <p style="text-align:center;font-weight:600;">Who’s this cake for?</p>
+    <input type="text" id="nameInput" placeholder="Type a name…" />
+    <button id="toLayers" disabled>Continue →</button>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="step" id="step-layers">
+    <p style="text-align:center;font-weight:600;">Drag layers onto the pan</p>
+    <div class="workspace">
+      <div id="palette-layers" class="palette">
+        <div class="draggable" draggable="true" data-type="layer" data-color="#ff8ba7" style="background:#ff8ba7;"></div>
+        <div class="draggable" draggable="true" data-type="layer" data-color="#a0e7e5" style="background:#a0e7e5;"></div>
+        <div class="draggable" draggable="true" data-type="layer" data-color="#ffd166" style="background:#ffd166;"></div>
+        <div class="draggable" draggable="true" data-type="layer" data-color="#cdb4db" style="background:#cdb4db;"></div>
+      </div>
+      <div id="pan-layers" class="pan" ondragover="event.preventDefault()"></div>
+    </div>
+    <button id="toTopping" disabled>Continue →</button>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="step" id="step-topping">
+    <p style="text-align:center;font-weight:600;">Add as many toppings as you like</p>
+    <div class="workspace">
+      <div id="palette-topping" class="palette">
+        <div class="draggable" draggable="true" data-type="topping" data-emoji="🍓">🍓</div>
+        <div class="draggable" draggable="true" data-type="topping" data-emoji="🍒">🍒</div>
+        <div class="draggable" draggable="true" data-type="topping" data-emoji="🍩">🍩</div>
+        <div class="draggable" draggable="true" data-type="topping" data-emoji="🍪">🍪</div>
+        <div class="draggable" draggable="true" data-type="topping" data-emoji="🧁">🧁</div>
+      </div>
+      <div id="pan-topping" class="pan" ondragover="event.preventDefault()"></div>
+    </div>
+    <button id="toFinish" disabled>Continue →</button>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="step" id="step-finish" style="align-items:center;">
+    <p style="text-align:center;font-size:1.2rem;">Click or blow to blow out the candle!</p>
+    <div id="pan-finish" class="pan" style="margin-bottom:1rem;"></div>
+    <div id="msg"></div>
+  </div>
+</div>
+
+<!-- ▸▸ SCRIPT AFTER ALL MARKUP ◂◂ -->
 <script>
-// GLOBAL STATE
-let layers = [], toppings = [];
-let recipient = "Birthday Star", micStream = null;
-let blowCount = 0, lastBlow = 0;
-const layerHeight = 40, BLOW_COOLDOWN = 1000;
+/* ---------- GLOBAL STATE ---------- */
+let layers=[], toppings=[];
+let recipient="Birthday Star", micStream=null;
+let blowCount=0, lastBlow=0;
+const layerHeight=40, BLOW_COOLDOWN=1000;
 
-// DOM ELEMENTS
-const stepMic = document.getElementById("step-mic");
-const stepName = document.getElementById("step-name");
-const stepLayers = document.getElementById("step-layers");
+/* ---------- DOM REFS ---------- */
+const stepMic     = document.getElementById("step-mic");
+const stepName    = document.getElementById("step-name");
+const stepLayers  = document.getElementById("step-layers");
 const stepTopping = document.getElementById("step-topping");
-const stepFinish = document.getElementById("step-finish");
+const stepFinish  = document.getElementById("step-finish");
 
-const enableMic = document.getElementById("enableMic");
-const toName = document.getElementById("toName");
-const micStatus = document.getElementById("micStatus");
+const enableMic   = document.getElementById("enableMic");
+const toName      = document.getElementById("toName");
+const micStatus   = document.getElementById("micStatus");
 
-const nameInput = document.getElementById("nameInput");
-const toLayers = document.getElementById("toLayers");
+const nameInput   = document.getElementById("nameInput");
+const toLayers    = document.getElementById("toLayers");
 
-const panLayers = document.getElementById("pan-layers");
-const toTopping = document.getElementById("toTopping");
+const panLayers   = document.getElementById("pan-layers");
+const toTopping   = document.getElementById("toTopping");
 
-const panTopping = document.getElementById("pan-topping");
-const toFinish = document.getElementById("toFinish");
+const panTopping  = document.getElementById("pan-topping");
+const toFinish    = document.getElementById("toFinish");
 
-// UTIL: render cake
-function renderCake(container, includeToppings = false) {
-  container.innerHTML = '';
-  layers.forEach((color, idx) => {
-    const div = document.createElement('div');
-    div.className = 'layer';
-    div.style.width = (220 - idx * 24) + 'px';
-    div.style.bottom = (idx * layerHeight) + 'px';
-    div.style.background = color;
+/* ---------- RENDER ---------- */
+function renderCake(container, includeToppings=false){
+  container.innerHTML='';
+  layers.forEach((color,i)=>{
+    const div=document.createElement('div');
+    div.className='layer';
+    div.style.width=(220-i*24)+'px';
+    div.style.bottom=(i*layerHeight)+'px';
+    div.style.background=color;
     container.appendChild(div);
   });
-  if (includeToppings) {
-    toppings.forEach((emoji, idx) => {
-      const top = document.createElement('div');
-      top.className = 'topping';
-      top.textContent = emoji;
-      top.style.left = `calc(50% + ${(idx - (toppings.length - 1) / 2) * 48}px)`;
-      top.style.bottom = (layers.length * layerHeight + 6) + 'px';
-      container.appendChild(top);
+  if(includeToppings){
+    toppings.forEach((emoji,i)=>{
+      const t=document.createElement('div');
+      t.className='topping';
+      t.textContent=emoji;
+      t.style.left=`calc(50% + ${(i-(toppings.length-1)/2)*48}px)`;
+      t.style.bottom=(layers.length*layerHeight+6)+'px';
+      container.appendChild(t);
     });
   }
 }
 
-// STEP 0 – mic
-enableMic.addEventListener('click', () => {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    micStatus.textContent = 'No mic API, but you can continue.';
-    toName.disabled = false;
-    return;
+/* ---------- STEP 0 ---------- */
+enableMic.addEventListener('click',()=>{
+  if(!navigator.mediaDevices?.getUserMedia){
+    micStatus.textContent='No mic API – but you can continue.';
+    toName.disabled=false; return;
   }
-  enableMic.disabled = true;
-  enableMic.textContent = 'Requesting…';
-  navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
-    micStream = s;
-    enableMic.textContent = 'Microphone enabled ✔';
-    micStatus.textContent = 'Great! Blow detection ready.';
-    toName.disabled = false;
-  }).catch(() => {
-    enableMic.textContent = 'Enable Microphone (optional)';
-    micStatus.textContent = 'Permission denied – continue without blowing feature.';
-    toName.disabled = false;
+  enableMic.disabled=true; enableMic.textContent='Requesting…';
+  navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{
+    micStream=s;
+    enableMic.textContent='Microphone enabled ✔';
+    micStatus.textContent='Great! Blow detection ready.';
+    toName.disabled=false;
+  }).catch(()=>{
+    enableMic.textContent='Enable Microphone (optional)';
+    micStatus.textContent='Permission denied – continue without mic.';
+    toName.disabled=false;
   });
 });
-toName.addEventListener('click', () => {
+toName.addEventListener('click',()=>{
   stepMic.classList.remove('active');
   stepName.classList.add('active');
   nameInput.focus();
 });
 
-// STEP 1 – name
-nameInput.addEventListener('input', () => toLayers.disabled = !nameInput.value.trim());
-toLayers.addEventListener('click', () => {
-  recipient = nameInput.value.trim() || 'Birthday Star';
+/* ---------- STEP 1 ---------- */
+nameInput.addEventListener('input',()=>toLayers.disabled=!nameInput.value.trim());
+toLayers.addEventListener('click',()=>{
+  recipient=nameInput.value.trim()||'Birthday Star';
   stepName.classList.remove('active');
   stepLayers.classList.add('active');
 });
 
-// drag helper
-document.querySelectorAll('.draggable').forEach(el => el.addEventListener('dragstart', e => {
-  e.dataTransfer.setData('text/plain', JSON.stringify(el.dataset));
-}));
+/* ---------- DRAG SUPPORT ---------- */
+document.querySelectorAll('.draggable').forEach(el=>{
+  el.addEventListener('dragstart',e=>{
+    e.dataTransfer.setData('text/plain',JSON.stringify(el.dataset));
+  });
+});
 
-// STEP 2 – layers
-panLayers.addEventListener('drop', e => {
+/* ---------- STEP 2 ---------- */
+panLayers.addEventListener('drop',e=>{
   e.preventDefault();
-  const d = JSON.parse(e.dataTransfer.getData('text/plain'));
-  if (d.type === 'layer' && layers.length < 6) {
-    layers.push(d.color);
-    renderCake(panLayers);
-    toTopping.disabled = false;
+  const d=JSON.parse(e.dataTransfer.getData('text/plain'));
+  if(d.type==='layer'&&layers.length<6){
+    layers.push(d.color);renderCake(panLayers);toTopping.disabled=false;
   }
 });
-toTopping.addEventListener('click', () => {
+toTopping.addEventListener('click',()=>{
   stepLayers.classList.remove('active');
   stepTopping.classList.add('active');
-  renderCake(panTopping, true);
+  renderCake(panTopping,true);
 });
 
-// STEP 3 – toppings
-panTopping.addEventListener('drop', e => {
+/* ---------- STEP 3 ---------- */
+panTopping.addEventListener('drop',e=>{
   e.preventDefault();
-  const d = JSON.parse(e.dataTransfer.getData('text/plain'));
-  if (d.type === 'topping') {
-    toppings.push(d.emoji);
-    renderCake(panTopping, true);
-    toFinish.disabled = false;
-  }
+  const d=JSON.parse(e.dataTransfer.getData('text/plain'));
+  if(d.type==='topping'){toppings.push(d.emoji);renderCake(panTopping,true);toFinish.disabled=false;}
 });
-toFinish.addEventListener('click', () => {
+toFinish.addEventListener('click',()=>{
   stepTopping.classList.remove('active');
   stepFinish.classList.add('active');
-  const panFinish = document.getElementById('pan-finish');
-  renderCake(panFinish, true);
+  const panFinish=document.getElementById('pan-finish');renderCake(panFinish,true);
 
-  // candle & flame
-  const candle = document.createElement('div');
-  candle.style.cssText = 'position:absolute;width:12px;height:46px;background:repeating-linear-gradient(45deg,#ffd1dc 0 4px,#ff8ba7 4px 8px);bottom:' + (layers.length * layerHeight + 50) + 'px;left:50%;transform:translateX(-50%);';
-  const flame = document.createElement('div');
-  flame.style.cssText = 'position:absolute;width:16px;height:20px;left:50%;top:-20px;transform:translateX(-50%);background:radial-gradient(circle at 50% 60%,#fff 0 20%,#ffda66 20% 60%,#ff8c00 60% 100%);border-radius:50%/60% 60% 40% 40%;animation:flicker .4s infinite alternate;';
-  candle.appendChild(flame);
-  panFinish.appendChild(candle);
+  /* Candle */
+  const candle=document.createElement('div');
+  candle.style.cssText=`position:absolute;width:12px;height:46px;background:repeating-linear-gradient(45deg,#ffd1dc 0 4px,#ff8ba7 4px 8px);bottom:${layers.length*layerHeight+50}px;left:50%;transform:translateX(-50%);`;
+  const flame=document.createElement('div');
+  flame.style.cssText='position:absolute;width:16px;height:20px;left:50%;top:-20px;transform:translateX(-50%);background:radial-gradient(circle at 50% 60%,#fff 0 20%,#ffda66 20% 60%,#ff8c00 60% 100%);border-radius:50%/60% 60% 40% 40%;animation:flicker .4s infinite alternate;';
+  candle.appendChild(flame);panFinish.appendChild(candle);
 
-  const msg = document.getElementById('msg');
+  const msg=document.getElementById('msg');
+  function celebrate1(){
+    flame.style.display='none';
+    msg.textContent=`Happy Birthday, ${recipient}!`;
+    msg.style.display='block';msg.style.opacity='1';
+    confetti({particleCount:200,spread:100,origin:{y:0.6}});
+  }
+  function celebrate2(){
+    msg.style.opacity='0';
+    setTimeout(()=>{
+      msg.textContent="You're the absolute best little brother ever. Happy birthday!";
+      msg.style.opacity='1';
+      confetti({particleCount:180,spread:120,origin:{y:0.6}});
+    },800);
+  }
+  const handleBlow=()=>{blowCount?celebrate2():celebrate1();blowCount++;};
+  window.addEventListener('click',handleBlow);
 
-  const celebrate1 = () => {
-    flame.style.display = 'none';
-    confetti({ particleCount: 200, spread: 100, origin: { y: 0.6 } });
-    msg.textContent = `Happy Birthday, ${recipient}!`;
-    msg.style.display = 'block';
-    msg.style.opacity = '1';
+  /* Mic blow detection */
+  const startBlowDetection=stream=>{
+    const ctx=new (window.AudioContext||window.webkitAudioContext)();
+    const analyser=ctx.createAnalyser();analyser.fftSize=256;
+    ctx.createMediaStreamSource(stream).connect(analyser);
+    const data=new Uint8Array(analyser.frequencyBinCount);
+    (function loop(){
+      if(ctx.state==='suspended') ctx.resume();
+      analyser.getByteFrequencyData(data);
+      const sum=data.reduce((a,b)=>a+b,0);
+      if(sum>100*data.length && Date.now()-lastBlow>BLOW_COOLDOWN){
+        lastBlow=Date.now();handleBlow();
+      }
+      requestAnimationFrame(loop);
+    })();
   };
-  const celebrate2 = () => {
-    msg.style.opacity = '0';
-    setTimeout(() => {
-      msg.textContent = "You're the absolute best little brother ever. Happy birthday!";
-      msg.style.opacity = '1';
-      confetti({ particleCount: 180, spread: 120, origin: { y: 0.6 } });
-    }, 800);
-  };
-  const handleBlow = () => {
-    blowCount ? celebrate2() : celebrate1();
-    blowCount++;
-  };
-  window.addEventListener('click', handleBlow);
-
-  // Blow detection
-  if (micStream) {
-    setupBlowDetection(micStream, handleBlow);
-  } else if (navigator.mediaDevices?.getUserMedia) {
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(s => {
-      micStream = s;
-      setupBlowDetection(s, handleBlow);
-    });
+  if(micStream){startBlowDetection(micStream);}
+  else if(navigator.mediaDevices?.getUserMedia){
+    navigator.mediaDevices.getUserMedia({audio:true}).then(s=>{micStream=s;startBlowDetection(s);});
   }
 });
-
-function setupBlowDetection(stream, onBlow) {
-  const ctx = new (window.AudioContext || window.webkitAudioContext)();
-  const analyser = ctx.createAnalyser();
-  analyser.fftSize = 256;
-  ctx.createMediaStreamSource(stream).connect(analyser);
-  const data = new Uint8Array(analyser.frequencyBinCount);
-  (function listen() {
-    if (ctx.state === "suspended") ctx.resume();
-    analyser.getByteFrequencyData(data);
-    const sum = data.reduce((a, b) => a + b, 0);
-    const now = Date.now();
-    if (sum > 100 * data.length && now - lastBlow > BLOW_COOLDOWN) {
-      lastBlow = now;
-      onBlow();
-    }
-    requestAnimationFrame(listen);
-  })();
-}
 </script>
+</body>
+</html>
